@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import assert from 'assert';
 import yargs from 'yargs';
 import chalk from 'chalk';
