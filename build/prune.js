@@ -238,7 +238,8 @@ function getHosts(client) {
                     shardList = _a.sent();
                     shardList.shards.forEach(function (shard) {
                         var _a = shard.host.split('/'), replSetName = _a[0], hosts = _a[1];
-                        hosts.push.apply(hosts, hosts.split(','));
+                        var hostList = hosts.split(',');
+                        hostStrs.push.apply(hostStrs, hostList);
                     });
                     return [3 /*break*/, 4];
                 case 3:
