@@ -1,6 +1,6 @@
 {
   "name": "mongo-index-pruner",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Index pruner for MongoDB",
   "main": "build/prune.js",
   "author": "Tyler Brock (@TylerBrock)",
