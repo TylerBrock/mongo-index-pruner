@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+import url from 'url';
 import assert from 'assert';
 import yargs from 'yargs';
 import chalk from 'chalk';
@@ -9,10 +9,14 @@ import mongoUriBuilder from 'mongo-uri-builder';
 
 import type {
   Db,
-  Collection
+  Collection,
+  MongoClientOptions,
 } from 'mongodb';
 
-const MONGODB_OPTIONS = { useUnifiedTopology: true };
+const MONGODB_OPTIONS: MongoClientOptions  = {
+  useUnifiedTopology: true,
+  connectTimeoutMS: 3000,
+};
 
 // @types/mongo doesn't have a topology attribute on MongoClient
 interface MyMongoClient extends MongoClient {
@@ -25,11 +29,15 @@ interface MongoHost {
 }
 
 interface MongoArguments {
+  readonly uri?: string;
   readonly host: string;
   readonly port: number;
   readonly username?: string;
   readonly password?: string;
   readonly database: string;
+  readonly ssl?: boolean;
+  readonly authSource?: string;
+  readonly replicaSet?: string;
   readonly collection?: string;
   readonly prune?: boolean;
 };
@@ -96,14 +104,48 @@ function stringToMongoHost(str: string): MongoHost {
 }
 
 function makeUri(mongoHost: MongoHost, args: MongoArguments): string {
+  // Lets make a uri for this host specifically
   const { host, port } = mongoHost;
-  const { username, password, database } = args;
+
+  // User may have provided these as individual args, just unpack them
+  let { username, password, database, ssl, authSource, replicaSet } = args;
+
+  // User provided URI, decompose the parts then reconstruct with provided host
+  if (args.uri) {
+    const parsedUri = url.parse(args.uri, true);
+    const { protocol, auth, path } = parsedUri;
+
+    if (auth) {
+      [username, password] = auth.split(':');
+    }
+
+    if (path) {
+      database = path;
+    }
+
+    const params = parsedUri.query;
+    const isSRV = protocol?.startsWith('mongodb+srv');
+
+    if (params.ssl || params.tls || isSRV) {
+      ssl = true;
+    }
+
+    if (typeof(params.authSource) === 'string') {
+      authSource = params.authSource;
+    }
+
+    if (typeof(params.replicaSet) === 'string') {
+      replicaSet = params.replicaSet;
+    }
+  }
+
   return mongoUriBuilder({
     username,
     password,
     database,
     host,
-    port
+    port,
+    options: { ssl, authSource, replicaSet }
   });
 }
 
@@ -174,7 +216,8 @@ async function getHosts(client: MongoClient): Promise<Array<MongoHost>> {
     const shardList = await admin.command({ listShards: true });
 
     hosts = shardList.shards.map((shard: any) => {
-      return shard.host.split('/').pop().split(',');
+      const [replSetName, hosts] = shard.host.split('/');
+      return hosts.split(',');
     });
   }
 
@@ -220,48 +263,87 @@ async function getCollectionNames(client: MongoClient): Promise<Array<string>> {
 function parse(): MongoArguments {
   const args = yargs
     .usage('Usage: $0 [options]')
-    .example('$0 -u <user> -p <pass> -h <host>', 'find unused indexes')
-    .example('$0 prune -u <user> -p <pass> -h <host>', 'remove unused indexes')
+    .example('$0 --uri mongodb://...', 'find and prune unused indexes')
+    .group(['uri'], 'MongoDB URI Connection Options:')
+    .option('uri', {
+      type: 'string',
+      description: 'URI to connect with (required for mongodb+srv://)',
+    })
+    .group([
+      'username',
+      'password',
+      'host',
+      'port',
+      'database',
+      'ssl',
+      'authSource',
+      'replicaSet'
+    ], 'Classic Connection Options:')
     .option('username', {
       alias: 'u',
       type: 'string',
-      description: 'user name to connect with'
+      description: 'User name to connect with'
     })
     .option('password', {
       alias: 'p',
       type: 'string',
-      description: 'password to connect with'
+      description: 'Password to connect with'
     })
     .option('host', {
       alias: 'h',
       type: 'string',
-      description: 'seed host to connect to',
+      description: 'Seed host to connect to',
       default: 'localhost'
     })
     .option('port', {
       type: 'number',
-      description: 'port to use on host',
+      description: 'Port to use on host',
       default: 27017
     })
     .option('database', {
       alias: 'd',
       type: 'string',
-      description: 'database to connect to',
+      description: 'Database to connect to',
       default: 'test'
     })
+    .option('ssl', {
+      type: 'boolean',
+      description: 'Use TLS/SSL for connection',
+      default: false
+    })
+    .option('authSource', {
+      type: 'string',
+      description: 'Database to authenticate against',
+    })
+    .option('replicaSet', {
+      type: 'string',
+      description: 'Replica set name',
+    })
+    .group(['collection', 'ops'], 'Targeting Options:')
     .option('collection', {
       alias: 'c',
       type: 'string',
-      description: 'collection to target',
+      description: 'Collection to target (ignore other collections)',
     })
+    .option('ops', {
+      alias: 'o',
+      type: 'number',
+      description: 'Index must have ops <= to be prunable',
+      default: 0,
+    })
+    .conflicts('uri', ['username', 'password', 'host', 'port', 'database'])
     .argv;
+
+    if (!args.authSource) {
+      args.authSource = args.database;
+    }
 
     return args;
 }
 
-async function main() {
+async function prune() {
   const args = parse();
-  const uri = mongoUriBuilder({ ...args });
+  const uri = args.uri || mongoUriBuilder({ ...args });
 
   const seedClient = await MongoClient.connect(uri, MONGODB_OPTIONS);
   const hosts = await getHosts(seedClient);
@@ -294,4 +376,4 @@ async function main() {
   await seedClient.close();
 }
 
-main();
+export default prune;

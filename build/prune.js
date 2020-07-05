@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 "use strict";
 var __makeTemplateObject = (this && this.__makeTemplateObject) || function (cooked, raw) {
     if (Object.defineProperty) { Object.defineProperty(cooked, "raw", { value: raw }); } else { cooked.raw = raw; }
@@ -55,13 +54,17 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+var url_1 = __importDefault(require("url"));
 var assert_1 = __importDefault(require("assert"));
 var yargs_1 = __importDefault(require("yargs"));
 var chalk_1 = __importDefault(require("chalk"));
 var inquirer_1 = __importDefault(require("inquirer"));
 var mongodb_1 = require("mongodb");
 var mongo_uri_builder_1 = __importDefault(require("mongo-uri-builder"));
-var MONGODB_OPTIONS = { useUnifiedTopology: true };
+var MONGODB_OPTIONS = {
+    useUnifiedTopology: true,
+    connectTimeoutMS: 3000,
+};
 ;
 var AggregateIndexStat = /** @class */ (function () {
     function AggregateIndexStat(stats) {
@@ -98,14 +101,40 @@ function stringToMongoHost(str) {
     return { host: parts[0], port: parseInt(parts[1], 10) };
 }
 function makeUri(mongoHost, args) {
+    var _a;
+    // Lets make a uri for this host specifically
     var host = mongoHost.host, port = mongoHost.port;
-    var username = args.username, password = args.password, database = args.database;
+    // User may have provided these as individual args, just unpack them
+    var username = args.username, password = args.password, database = args.database, ssl = args.ssl, authSource = args.authSource, replicaSet = args.replicaSet;
+    // User provided URI, decompose the parts then reconstruct with provided host
+    if (args.uri) {
+        var parsedUri = url_1.default.parse(args.uri, true);
+        var protocol = parsedUri.protocol, auth = parsedUri.auth, path = parsedUri.path;
+        if (auth) {
+            _a = auth.split(':'), username = _a[0], password = _a[1];
+        }
+        if (path) {
+            database = path;
+        }
+        var params = parsedUri.query;
+        var isSRV = protocol === null || protocol === void 0 ? void 0 : protocol.startsWith('mongodb+srv');
+        if (params.ssl || params.tls || isSRV) {
+            ssl = true;
+        }
+        if (typeof (params.authSource) === 'string') {
+            authSource = params.authSource;
+        }
+        if (typeof (params.replicaSet) === 'string') {
+            replicaSet = params.replicaSet;
+        }
+    }
     return mongo_uri_builder_1.default({
         username: username,
         password: password,
         database: database,
         host: host,
-        port: port
+        port: port,
+        options: { ssl: ssl, authSource: authSource, replicaSet: replicaSet }
     });
 }
 function printSummary(indexMap) {
@@ -208,7 +237,8 @@ function getHosts(client) {
                 case 2:
                     shardList = _a.sent();
                     hosts = shardList.shards.map(function (shard) {
-                        return shard.host.split('/').pop().split(',');
+                        var _a = shard.host.split('/'), replSetName = _a[0], hosts = _a[1];
+                        return hosts.split(',');
                     });
                     _a.label = 3;
                 case 3: return [2 /*return*/, hosts.map(stringToMongoHost)];
@@ -286,44 +316,82 @@ function getCollectionNames(client) {
 function parse() {
     var args = yargs_1.default
         .usage('Usage: $0 [options]')
-        .example('$0 -u <user> -p <pass> -h <host>', 'find unused indexes')
-        .example('$0 prune -u <user> -p <pass> -h <host>', 'remove unused indexes')
+        .example('$0 --uri mongodb://...', 'find and prune unused indexes')
+        .group(['uri'], 'MongoDB URI Connection Options:')
+        .option('uri', {
+        type: 'string',
+        description: 'URI to connect with (required for mongodb+srv://)',
+    })
+        .group([
+        'username',
+        'password',
+        'host',
+        'port',
+        'database',
+        'ssl',
+        'authSource',
+        'replicaSet'
+    ], 'Classic Connection Options:')
         .option('username', {
         alias: 'u',
         type: 'string',
-        description: 'user name to connect with'
+        description: 'User name to connect with'
     })
         .option('password', {
         alias: 'p',
         type: 'string',
-        description: 'password to connect with'
+        description: 'Password to connect with'
     })
         .option('host', {
         alias: 'h',
         type: 'string',
-        description: 'seed host to connect to',
+        description: 'Seed host to connect to',
         default: 'localhost'
     })
         .option('port', {
         type: 'number',
-        description: 'port to use on host',
+        description: 'Port to use on host',
         default: 27017
     })
         .option('database', {
         alias: 'd',
         type: 'string',
-        description: 'database to connect to',
+        description: 'Database to connect to',
         default: 'test'
     })
+        .option('ssl', {
+        type: 'boolean',
+        description: 'Use TLS/SSL for connection',
+        default: false
+    })
+        .option('authSource', {
+        type: 'string',
+        description: 'Database to authenticate against',
+    })
+        .option('replicaSet', {
+        type: 'string',
+        description: 'Replica set name',
+    })
+        .group(['collection', 'ops'], 'Targeting Options:')
         .option('collection', {
         alias: 'c',
         type: 'string',
-        description: 'collection to target',
+        description: 'Collection to target (ignore other collections)',
     })
+        .option('ops', {
+        alias: 'o',
+        type: 'number',
+        description: 'Index must have ops <= to be prunable',
+        default: 0,
+    })
+        .conflicts('uri', ['username', 'password', 'host', 'port', 'database'])
         .argv;
+    if (!args.authSource) {
+        args.authSource = args.database;
+    }
     return args;
 }
-function main() {
+function prune() {
     return __awaiter(this, void 0, void 0, function () {
         var args, uri, seedClient, hosts, _i, hosts_1, host, collectionNames, _a, uris, clients, _b, collectionNames_1, collectionName, collection, indexMap, _c, clients_2, client;
         var _this = this;
@@ -331,7 +399,7 @@ function main() {
             switch (_d.label) {
                 case 0:
                     args = parse();
-                    uri = mongo_uri_builder_1.default(__assign({}, args));
+                    uri = args.uri || mongo_uri_builder_1.default(__assign({}, args));
                     return [4 /*yield*/, mongodb_1.MongoClient.connect(uri, MONGODB_OPTIONS)];
                 case 1:
                     seedClient = _d.sent();
@@ -401,5 +469,5 @@ function main() {
         });
     });
 }
-main();
+exports.default = prune;
 var templateObject_1, templateObject_2, templateObject_3, templateObject_4, templateObject_5, templateObject_6, templateObject_7;
