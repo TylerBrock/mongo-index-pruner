@@ -109,12 +109,13 @@ function makeUri(mongoHost, args) {
     // User provided URI, decompose the parts then reconstruct with provided host
     if (args.uri) {
         var parsedUri = url_1.default.parse(args.uri, true);
-        var protocol = parsedUri.protocol, auth = parsedUri.auth, path = parsedUri.path;
+        var protocol = parsedUri.protocol, auth = parsedUri.auth, pathname = parsedUri.pathname;
         if (auth) {
             _a = auth.split(':'), username = _a[0], password = _a[1];
         }
-        if (path) {
-            database = path;
+        if (pathname) {
+            // pathname includes leading '/' so we must remove it
+            database = pathname.substr(1);
         }
         var params = parsedUri.query;
         var isSRV = protocol === null || protocol === void 0 ? void 0 : protocol.startsWith('mongodb+srv');
