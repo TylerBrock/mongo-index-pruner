@@ -231,17 +231,20 @@ function getHosts(client) {
                     return [4 /*yield*/, admin.command({ isMaster: true })];
                 case 1:
                     isMaster = _a.sent();
-                    hosts = isMaster.hosts;
+                    hosts = [];
                     if (!(isMaster.msg === "isdbgrid")) return [3 /*break*/, 3];
                     return [4 /*yield*/, admin.command({ listShards: true })];
                 case 2:
                     shardList = _a.sent();
-                    hosts = shardList.shards.map(function (shard) {
+                    shardList.shards.forEach(function (shard) {
                         var _a = shard.host.split('/'), replSetName = _a[0], hosts = _a[1];
-                        return hosts.split(',');
+                        hosts.push.apply(hosts, hosts.split(','));
                     });
-                    _a.label = 3;
-                case 3: return [2 /*return*/, hosts.map(stringToMongoHost)];
+                    return [3 /*break*/, 4];
+                case 3:
+                    hosts = isMaster.hosts;
+                    _a.label = 4;
+                case 4: return [2 /*return*/, hosts.map(stringToMongoHost)];
             }
         });
     });
@@ -384,7 +387,6 @@ function parse() {
         description: 'Index must have ops <= to be prunable',
         default: 0,
     })
-        .conflicts('uri', ['username', 'password', 'host', 'port', 'database'])
         .argv;
     if (!args.authSource) {
         args.authSource = args.database;

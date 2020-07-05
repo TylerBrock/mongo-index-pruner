@@ -209,16 +209,18 @@ async function getHosts(client: MongoClient): Promise<Array<MongoHost>> {
   const admin = db.admin();
   const isMaster = await admin.command({ isMaster: true });
 
-  let hosts = isMaster.hosts;
+  let hosts = [];
 
   if (isMaster.msg === "isdbgrid") {
     // We are connected to a mongos
     const shardList = await admin.command({ listShards: true });
 
-    hosts = shardList.shards.map((shard: any) => {
+    shardList.shards.forEach((shard: any) => {
       const [replSetName, hosts] = shard.host.split('/');
-      return hosts.split(',');
+      hosts.push(...hosts.split(','));
     });
+  } else {
+    hosts = isMaster.hosts;
   }
 
   return hosts.map(stringToMongoHost);
