@@ -194,7 +194,7 @@ async function pruneIndexes(
 
     assert(spec); // spec for index with this name must exist
 
-    if (stat.accesses.ops === 0) {
+    if (indexName != '_id_' && stat.accesses.ops === 0) {
       const shouldRemove = await ask(indexName, spec, stat);
       if (shouldRemove) {
         console.log(chalk`{red *** Removing ${indexName} ***}`);
@@ -358,7 +358,7 @@ async function prune() {
 
   const collectionNames = args.collection
     ? [args.collection]
-    : await getCollectionNames(seedClient);
+    : await getCollectionNames(seedClient).sort();
 
   const uris = hosts.map(host => makeUri(host, args));
   const clients = await Promise.all(uris.map(async (uri) => {
