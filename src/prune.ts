@@ -217,7 +217,8 @@ async function getHosts(client: MongoClient): Promise<Array<MongoHost>> {
 
     shardList.shards.forEach((shard: any) => {
       const [replSetName, hosts] = shard.host.split('/');
-      hosts.push(...hosts.split(','));
+      const hostList = hosts.split(',');
+      hostStrs.push(...hostList);
     });
   } else {
     hostStrs = isMaster.hosts;
