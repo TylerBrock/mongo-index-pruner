@@ -209,7 +209,7 @@ async function getHosts(client: MongoClient): Promise<Array<MongoHost>> {
   const admin = db.admin();
   const isMaster = await admin.command({ isMaster: true });
 
-  let hosts = [];
+  let hostStrs = [];
 
   if (isMaster.msg === "isdbgrid") {
     // We are connected to a mongos
@@ -220,10 +220,10 @@ async function getHosts(client: MongoClient): Promise<Array<MongoHost>> {
       hosts.push(...hosts.split(','));
     });
   } else {
-    hosts = isMaster.hosts;
+    hostStrs = isMaster.hosts;
   }
 
-  return hosts.map(stringToMongoHost);
+  return hostStrs.map(stringToMongoHost);
 }
 
 async function fetchIndexStats(collection: Collection): Promise<Array<IndexStat>> {

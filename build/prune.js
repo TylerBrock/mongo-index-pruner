@@ -222,7 +222,7 @@ function pruneIndexes(clients, collection, indexMap) {
 // Returns an array of MongoHost pairs representing all mongod hosts in cluster
 function getHosts(client) {
     return __awaiter(this, void 0, void 0, function () {
-        var db, admin, isMaster, hosts, shardList;
+        var db, admin, isMaster, hostStrs, shardList;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -231,7 +231,7 @@ function getHosts(client) {
                     return [4 /*yield*/, admin.command({ isMaster: true })];
                 case 1:
                     isMaster = _a.sent();
-                    hosts = [];
+                    hostStrs = [];
                     if (!(isMaster.msg === "isdbgrid")) return [3 /*break*/, 3];
                     return [4 /*yield*/, admin.command({ listShards: true })];
                 case 2:
@@ -242,9 +242,9 @@ function getHosts(client) {
                     });
                     return [3 /*break*/, 4];
                 case 3:
-                    hosts = isMaster.hosts;
+                    hostStrs = isMaster.hosts;
                     _a.label = 4;
-                case 4: return [2 /*return*/, hosts.map(stringToMongoHost)];
+                case 4: return [2 /*return*/, hostStrs.map(stringToMongoHost)];
             }
         });
     });
