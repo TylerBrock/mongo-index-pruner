@@ -113,14 +113,15 @@ function makeUri(mongoHost: MongoHost, args: MongoArguments): string {
   // User provided URI, decompose the parts then reconstruct with provided host
   if (args.uri) {
     const parsedUri = url.parse(args.uri, true);
-    const { protocol, auth, path } = parsedUri;
+    const { protocol, auth, pathname } = parsedUri;
 
     if (auth) {
       [username, password] = auth.split(':');
     }
 
-    if (path) {
-      database = path;
+    if (pathname) {
+      // pathname includes leading '/' so we must remove it
+      database = pathname.substr(1);
     }
 
     const params = parsedUri.query;
