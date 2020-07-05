@@ -2,31 +2,6 @@
 
 Easily and safely remove unused indexes from MongoDB clusters. This utility collects index stats from accross the cluster (instead of just primary nodes) and presents unused indexes to remove.
 
-### Example Prune Session
-
-```sh
-$ mongo-index-pruner --uri 'mongodb://<mongo_uri>'
-Discovered 3 mongods
- - [MONGOD] <replSet>-shard-00-00-<host>.mongodb.net:27017
- - [MONGOD] <replSet>-shard-00-01-<host>.mongodb.net:27017
- - [MONGOD] <replSet>-shard-00-02-<host>.mongodb.net:27017
-Gathering index stats for Account
-Gathering index stats for AccountAdmin
-Gathering index stats for AccountAdminInvite
-Gathering index stats for Action
-Gathering index stats for ActionTarget
-Index hustle.ActionTarget :: _p_organization_1:
- - 0 accesses accross 3 hosts
- - latest node time Thu Jun 25 2020 06:16:17 GMT+0000 (Coordinated Universal Time)
- - specification = {
-  v: 2,
-  key: { _p_organization: 1 },
-  name: '_p_organization_1',
-  ns: 'hustle.ActionTarget'
-}
-
-```
-
 ### Installation
 
 With `yarn`:
@@ -70,6 +45,31 @@ Options:
 
 Examples:
   mongo-index-pruner --uri mongodb://...  find and prune unused indexes
+```
+
+### Example Prune Session
+
+```sh
+$ mongo-index-pruner --uri 'mongodb://<mongo_uri>'
+Discovered 3 mongods
+ - [MONGOD] <replSet>-shard-00-00-<host>.mongodb.net:27017
+ - [MONGOD] <replSet>-shard-00-01-<host>.mongodb.net:27017
+ - [MONGOD] <replSet>-shard-00-02-<host>.mongodb.net:27017
+Gathering index stats for Account
+Gathering index stats for AccountAdmin
+Gathering index stats for AccountAdminInvite
+Gathering index stats for Action
+Gathering index stats for ActionTarget
+Index hustle.ActionTarget :: _p_organization_1:
+ - 0 accesses accross 3 hosts
+ - latest node time Thu Jun 25 2020 06:16:17 GMT+0000 (Coordinated Universal Time)
+ - specification = {
+  v: 2,
+  key: { _p_organization: 1 },
+  name: '_p_organization_1',
+  ns: 'hustle.ActionTarget'
+}
+
 ```
 
 ### TODO
