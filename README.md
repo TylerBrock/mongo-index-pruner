@@ -2,6 +2,8 @@
 
 Easily and safely remove unused indexes from MongoDB clusters. This utility collects index stats from accross the cluster (instead of just primary nodes) and presents unused indexes to remove.
 
+![Mongo Index Pruner](images/mongo-index-pruner.png)
+
 ### Installation
 
 With `yarn`:
