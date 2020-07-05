@@ -258,7 +258,7 @@ async function fetchCollStats(
 async function getCollectionNames(client: MongoClient): Promise<Array<string>> {
   const db = client.db();
   const collectionQuery = db.listCollections({
-    name: { $ne: { $regex: /^(_|fs|system).*$/ } },
+    name: { $not: { $regex: /^(_|fs|system).*$/ } },
   });
   const collections = await collectionQuery.toArray();
   return collections.map(c => c.name);
