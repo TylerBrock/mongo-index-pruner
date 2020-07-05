@@ -358,7 +358,9 @@ async function prune() {
 
   const collectionNames = args.collection
     ? [args.collection]
-    : await getCollectionNames(seedClient).sort();
+    : await getCollectionNames(seedClient);
+
+  collectionNames.sort();
 
   const uris = hosts.map(host => makeUri(host, args));
   const clients = await Promise.all(uris.map(async (uri) => {
