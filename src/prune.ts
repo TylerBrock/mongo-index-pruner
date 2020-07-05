@@ -331,7 +331,6 @@ function parse(): MongoArguments {
       description: 'Index must have ops <= to be prunable',
       default: 0,
     })
-    .conflicts('uri', ['username', 'password', 'host', 'port', 'database'])
     .argv;
 
     if (!args.authSource) {
